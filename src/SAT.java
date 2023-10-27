@@ -32,6 +32,9 @@ public final class SAT {
         } catch (TimeoutException e) {
             return Optional.empty();
         }
+        if (modell == null) {
+            return Optional.empty();
+        }
 
         Map<String, Boolean> modellVariablen = new HashMap<>();
         for (int literal : modell) {
