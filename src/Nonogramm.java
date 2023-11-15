@@ -1,13 +1,90 @@
-import java.util.List;
+import java.util.*;
 
-import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public final class Nonogramm {
     private record Daten(int breite, int höhe, List<List<Integer>> spalten, List<List<Integer>> zeilen) { }
+
+    private static Daten parse(String... text) {
+        int breite = text[0].length(), höhe = text.length;
+
+        List<List<Integer>> spalten = new ArrayList<>();
+        for (int spalte = 0; spalte < breite; spalte++) {
+            List<Integer> zahlen = new ArrayList<>();
+            int aktuelleGruppe = 0;
+            for (String s : text) {
+                if (s.charAt(spalte) == '@') {
+                    aktuelleGruppe++;
+                } else {
+                    if (aktuelleGruppe != 0) zahlen.add(aktuelleGruppe);
+                    aktuelleGruppe = 0;
+                }
+            }
+            if (aktuelleGruppe != 0) zahlen.add(aktuelleGruppe);
+            spalten.add(zahlen);
+        }
+
+        List<List<Integer>> zeilen = new ArrayList<>();
+        for (int zeile = 0; zeile < höhe; zeile++) {
+            List<Integer> zahlen = new ArrayList<>();
+            int aktuelleGruppe = 0;
+            for (int spalte = 0; spalte < breite; spalte++) {
+                if (text[zeile].charAt(spalte) == '@') {
+                    aktuelleGruppe++;
+                } else {
+                    if (aktuelleGruppe != 0) zahlen.add(aktuelleGruppe);
+                    aktuelleGruppe = 0;
+                }
+            }
+            if (aktuelleGruppe != 0) zahlen.add(aktuelleGruppe);
+            zeilen.add(zahlen);
+        }
+
+        return new Daten(breite, höhe, spalten, zeilen);
+    }
+
+    private static Daten zufälligesNonogramm(int breite, int höhe) {
+        Random rnd = new Random();
+        String[] zeilen = new String[höhe];
+        for (int zeileIndex = 0; zeileIndex < zeilen.length; zeileIndex++) {
+            StringBuilder zeile = new StringBuilder();
+            for (int spalte = 0; spalte < breite; spalte++) {
+                zeile.append(rnd.nextBoolean() ? "@" : " ");
+            }
+            zeilen[zeileIndex] = zeile.toString();
+        }
+        return parse(zeilen);
+    }
+
+    private static Daten zufälligesNonogramm(int breite, int höhe, int auszumalendeKästchen) {
+        Random rnd = new Random();
+        boolean[][] zeilen = new boolean[höhe][breite];
+        while (auszumalendeKästchen > 0) {
+            int zeile = rnd.nextInt(höhe);
+            int spalte = rnd.nextInt(breite);
+            if (zeilen[zeile][spalte]) {
+                continue;
+            }
+
+            zeilen[zeile][spalte] = true;
+            auszumalendeKästchen--;
+        }
+
+        String[] zeilenText = new String[höhe];
+        for (int y = 0; y < höhe; y++) {
+            zeilenText[y] = "";
+            for (int x = 0; x < breite; x++) {
+                if (zeilen[y][x]) {
+                    zeilenText[y] += "@";
+                } else {
+                    zeilenText[y] += " ";
+                }
+            }
+        }
+        return parse(zeilenText);
+    }
 
     // https://www.janko.at/Raetsel/Nonogramme/1691.a.htm
     private static final Daten SMILEY = new Daten(
@@ -149,9 +226,64 @@ public final class Nonogramm {
     );
 
     public static void main(String[] args) {
-        lösen(SMILEY);
-        lösen(KATZE);
-        lösen(KOALA);
+//        lösen(SMILEY);
+//        lösen(KATZE);
+//        lösen(KOALA);
+//
+//        eindeutigÜberprüfen(
+//                "@     @                ",
+//                "@     @  @@@@@@  @@@@@ ",
+//                "@     @  @       @    @",
+//                "@@@@@@@  @@@@@   @    @",
+//                "@     @  @       @@@@@ ",
+//                "@     @  @       @   @ ",
+//                "@     @  @@@@@@  @    @",
+//                "@@@@@   @@@@@@  @@@@@  ",
+//                "@    @  @       @    @ ",
+//                "@    @  @@@@@   @    @ ",
+//                "@    @  @       @@@@@  ",
+//                "@    @  @       @   @  ",
+//                "@@@@@   @@@@@@  @    @ "
+//
+//        );
+
+//        long l = System.currentTimeMillis();
+//        eindeutigÜberprüfen(
+//            " @@@@@@@@@@@@@ ",
+//            "@ @@@@@@@@@@@ @",
+//            "@ @@@@@@@@@@@ @",
+//            "@@ @@@@ @@@@ @@",
+//            "@@@ @  @  @ @@@",
+//            "@@@@ @@@@@ @@@@"
+//
+//        );
+//        System.out.println(System.currentTimeMillis() - l);
+        lösbarkeitsTest();
+    }
+
+    private static void lösbarkeitsTest() {
+        Map<Integer, Integer> gesamt = new HashMap<>();
+        Map<Integer, Integer> davonLösbar = new HashMap<>();
+        int i = 0;
+        while (true) {
+            Daten daten = zufälligesNonogramm(10, 10, 13);
+            int anzahlKästchen = daten.spalten.stream().flatMap(Collection::stream).mapToInt(Integer::intValue).sum();
+            boolean eindeutig = eindeutigÜberprüfen(daten).orElseThrow();
+            gesamt.put(anzahlKästchen, gesamt.getOrDefault(anzahlKästchen, 0)+1);
+            if (eindeutig) {
+                davonLösbar.put(anzahlKästchen, davonLösbar.getOrDefault(anzahlKästchen, 0)+1);
+            }
+
+            if (++i % 200 == 0) {
+                for (int j = 0; j <= 100; j++) {
+                    if (!gesamt.containsKey(j)) {
+                        System.out.println(j +": -");
+                        continue;
+                    }
+                    System.out.println(j + ": " + ((double) davonLösbar.getOrDefault(j, 0) / (double) gesamt.get(j))*100 + "%");
+                }
+            }
+        }
     }
 
     private static void lösen(Daten daten) {
@@ -170,6 +302,34 @@ public final class Nonogramm {
             System.out.println();
         }
         System.out.println();
+    }
+
+    private static Optional<Boolean> eindeutigÜberprüfen(Daten daten) {
+        Formel formel = F(daten.breite, daten.höhe, daten.spalten, daten.zeilen);
+        Optional<Map<String, Boolean>> belegung1 = SAT.belegungFinden(formel);
+        if (belegung1.isEmpty()) {
+            return Optional.empty();
+        }
+
+        formel = new Konjunktion(formel, new Negation(belegung1.get().entrySet().stream().<Formel>map(entry -> {
+            if (entry.getValue()) {
+                return new Atom(entry.getKey());
+            }
+            return new Negation(new Atom(entry.getKey()));
+        }).reduce(Konjunktion::new).orElse(Top.INSTANCE)));
+        Optional<Map<String, Boolean>> belegung2 = SAT.belegungFinden(formel);
+
+        if (belegung2.isEmpty()) {
+            for (int y = 1; y <= daten.höhe(); y++) {
+                for (int x = 1; x <= daten.breite(); x++) {
+                    System.out.print(belegung1.get().get("A"+x+","+y) ? "@" : " ");
+                }
+                System.out.println();
+            }
+            System.out.println();
+        }
+
+        return Optional.of(belegung2.isEmpty());
     }
 
     private static Formel F(int b, int h, List<List<Integer>> s, List<List<Integer>> z) {
